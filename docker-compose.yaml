@@ -1,0 +1,22 @@
+services:
+  todo-app:
+    build: ./src
+    container_name: todo-app
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URL=mongodb://todo-mongo:27017/todo
+    networks:
+      - todo-network
+    depends_on:
+      - todo-mongo
+
+  todo-mongo:
+    image: mongo:latest
+    container_name: todo-mongo
+    networks:
+      - todo-network
+
+networks:
+  todo-network:
+    driver: bridge
