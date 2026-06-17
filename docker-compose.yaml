@@ -1,22 +1,16 @@
 services:
-  todo-app:
-    build: ./src
-    container_name: todo-app
-    ports:
-      - "3000:3000"
+  taskflow-mongo:
+    image: mongo:7
+    container_name: taskflow-mongo
     environment:
-      - MONGO_URL=mongodb://todo-mongo:27017/todo
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_DATABASE=taskflow-app
+    ports:
+      - "27017:27017"
     networks:
-      - todo-network
-    depends_on:
-      - todo-mongo
-
-  todo-mongo:
-    image: mongo:latest
-    container_name: todo-mongo
-    networks:
-      - todo-network
+      - taskflow-network
 
 networks:
-  todo-network:
+  taskflow-network:
     driver: bridge

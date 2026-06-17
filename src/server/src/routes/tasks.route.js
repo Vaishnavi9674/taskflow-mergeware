@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getTasks, createTask, updateTask, deleteTask } from '../controllers/task.controller.js';
+import { getTasks, getTaskById, createTask, updateTask, deleteTask } from '../controllers/task.controller.js';
 import authMiddleware from '../middleware/auth.midddleware.js';
 
 const tasksrouter = Router();
@@ -7,9 +7,10 @@ const tasksrouter = Router();
 // protect all task routes
 tasksrouter.use(authMiddleware);
 
-tasksrouter.get("/", getTasks);
-tasksrouter.post("/", createTask);
-tasksrouter.put("/:id", updateTask);
-tasksrouter.delete("/:id", deleteTask);
+tasksrouter.get('/', getTasks);
+tasksrouter.get('/:id', getTaskById);
+tasksrouter.post('/', createTask);
+tasksrouter.put('/:id', updateTask);
+tasksrouter.delete('/:id', deleteTask);
 
-export default tasksrouter;
+export { tasksrouter };

@@ -1,31 +1,44 @@
 import express from 'express';
+import dotenv from 'dotenv';
+import cors from 'cors';
+
+dotenv.config({
+	path: process.env.NODE_ENV === 'development' ? '.env.development' : '.env',
+});
 
 const app = express();
 
 import connectDB from './db/init.js';
-connectDB()
-  .then(() => {
-    console.log("Database connected successfully");
-  })
-  .catch((err) => {
-    console.error("Database connection failed:", err);
-    process.exit(1);
-  });
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send({"message": "API server", "status": "running"});
+app.use(
+	cors({
+		origin: process.env.CORS_ORIGIN || '*',
+	})
+);
+
+app.get('/', (res) => {
+	res.json({
+		status: 'success',
+		message: 'Welcome to TaskFlow API',
+	});
 });
 
-import authrouter from './routes/auth.route.js';
-app.use('/api/auth', authrouter);
+import { authrouter } from './routes/auth.route.js';
+app.use('/api/v1/auth', authrouter);
 
-import taskrouter from './routes/tasks.route.js';
-app.use('/api/tasks', taskrouter);
+import { tasksrouter } from './routes/tasks.route.js';
+app.use('/api/v1/tasks', tasksrouter);
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+connectDB()
+	.then(() => {
+		app.listen(PORT, () => {
+			console.log(`Server running on port ${PORT}`);
+		});
+	})
+	.catch((err) => {
+		console.error('Failed to connect to MongoDB', err);
+	});

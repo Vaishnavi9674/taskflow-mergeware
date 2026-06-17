@@ -1,26 +1,30 @@
 {
-  "name": "server",
-  "version": "1.0.0",
-  "description": "",
-  "main": "src/main.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/main.js",
-    "format": "prettier --write ."
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "express": "^5.2.1",
-    "express-jwt": "^8.5.1",
-    "express-router": "^0.0.1",
-    "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.6.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.14"
-  }
+	"name": "server",
+	"version": "1.0.0",
+	"description": "",
+	"main": "src/main.js",
+	"scripts": {
+		"test": "node --test",
+		"dev": "nodemon src/main.js",
+		"format": "prettier --write . --ignore-path .prettierignore --config prettier.config.json"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "module",
+	"dependencies": {
+		"bcrypt": "^6.0.0",
+		"bcryptjs": "^2.4.3",
+		"cors": "^2.8.6",
+		"dotenv": "^17.4.2",
+		"express": "^5.2.1",
+		"express-jwt": "^8.5.1",
+		"express-router": "^0.0.1",
+		"jsonwebtoken": "^9.0.3",
+		"mongoose": "^9.6.2"
+	},
+	"devDependencies": {
+		"nodemon": "^3.1.14",
+		"prettier": "^3.8.4"
+	}
 }
