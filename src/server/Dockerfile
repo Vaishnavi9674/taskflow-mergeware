@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:lts-alpine3.24
 
 WORKDIR /app
 
@@ -8,6 +8,5 @@ RUN npm ci --omit=dev
 COPY src ./src
 
 ENV NODE_ENV=production
-EXPOSE 8080
 
 CMD ["node", "src/main.js"]

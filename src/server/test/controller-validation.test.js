@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { register, login } from '../src/controllers/auth.controller.js';
-import { createTask, getTaskById, updateTask } from '../src/controllers/task.controller.js';
+import { createTask, getTaskById, updateTask, reorderTasks } from '../src/controllers/task.controller.js';
 
 const createResponse = () => {
 	const response = {
@@ -67,4 +67,13 @@ test('updateTask rejects an invalid task id before reading MongoDB', async () =>
 
 	assert.equal(res.statusCode, 400);
 	assert.equal(res.body.message, 'Invalid task id');
+});
+
+test('reorderTasks rejects missing or non-array taskIds', async () => {
+	const res = createResponse();
+
+	await reorderTasks({ body: { taskIds: 'not-an-array' }, user: { id: '507f1f77bcf86cd799439011' } }, res);
+
+	assert.equal(res.statusCode, 400);
+	assert.equal(res.body.message, 'taskIds must be an array');
 });

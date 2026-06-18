@@ -12,6 +12,15 @@ const taskSchema = new mongoose.Schema({
 		type: Boolean,
 		default: false,
 	},
+	category: {
+		type: String,
+		enum: ['Work', 'Personal', 'Urgent', 'None'],
+		default: 'None',
+	},
+	order: {
+		type: Number,
+		default: 0,
+	},
 	userId: {
 		type: mongoose.Schema.Types.ObjectId,
 		ref: 'User',

@@ -18,7 +18,7 @@ app.use(
 	})
 );
 
-app.get('/', (res) => {
+app.get('/', (req, res) => {
 	res.json({
 		status: 'success',
 		message: 'Welcome to TaskFlow API',

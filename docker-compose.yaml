@@ -1,4 +1,30 @@
 services:
+  taskflow-client:
+    build: ./src/client
+    container_name: taskflow-client
+    environment:
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    networks:
+      - taskflow-network
+    depends_on:
+      - taskflow-mongo
+      - taskflow-server
+  taskflow-server:
+    build: ./src/server
+    container_name: taskflow-server
+    environment:
+      - CORS_ORIGIN=*
+      - MONGO_URI=mongodb://admin:admin@taskflow-mongo:27017/taskflow-app?authSource=admin
+      - JWT_SECRET=thisisasecretkey
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    networks:
+      - taskflow-network
+    depends_on:
+      - taskflow-mongo
   taskflow-mongo:
     image: mongo:7
     container_name: taskflow-mongo
@@ -6,8 +32,6 @@ services:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=admin
       - MONGO_INITDB_DATABASE=taskflow-app
-    ports:
-      - "27017:27017"
     networks:
       - taskflow-network
 

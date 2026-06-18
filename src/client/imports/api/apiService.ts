@@ -12,6 +12,8 @@ export interface Task {
   description?: string;
   completed: boolean;
   userId: string;
+  category?: string;
+  order?: number;
 }
 
 export interface AuthResponse {
@@ -79,16 +81,16 @@ export const apiService = {
     return handleResponse<Task[]>(res);
   },
 
-  async createTask(title: string, description: string): Promise<Task> {
+  async createTask(title: string, description: string, category: string): Promise<Task> {
     const res = await fetch(`${BASE_URL}/tasks`, {
       method: "POST",
       headers: getHeaders(),
-      body: JSON.stringify({ title, description }),
+      body: JSON.stringify({ title, description, category }),
     });
     return handleResponse<Task>(res);
   },
 
-  async updateTask(id: string, updates: { title?: string; description?: string; completed?: boolean }): Promise<Task> {
+  async updateTask(id: string, updates: { title?: string; description?: string; completed?: boolean; category?: string }): Promise<Task> {
     const res = await fetch(`${BASE_URL}/tasks/${id}`, {
       method: "PUT",
       headers: getHeaders(),
@@ -101,6 +103,15 @@ export const apiService = {
     const res = await fetch(`${BASE_URL}/tasks/${id}`, {
       method: "DELETE",
       headers: getHeaders(),
+    });
+    return handleResponse<{ message: string }>(res);
+  },
+
+  async reorderTasks(taskIds: string[]): Promise<{ message: string }> {
+    const res = await fetch(`${BASE_URL}/tasks/reorder`, {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify({ taskIds }),
     });
     return handleResponse<{ message: string }>(res);
   },

@@ -28,12 +28,17 @@ const createTask = async (req, res) => {
 		const body = req.body || {};
 		const title = String(body.title || '').trim();
 		const description = String(body.description || '').trim();
+		const category = String(body.category || 'None').trim();
 
 		if (!title) {
 			return res.status(400).json({ message: 'Title is required' });
 		}
 
-		const task = new Task({ title, description, userId: req.user.id });
+		// Find task with lowest order to place new task at the top (order = minOrder - 1)
+		const minOrderTask = await Task.findOne({ userId: req.user.id }).sort({ order: 1 }).select('order');
+		const order = minOrderTask && typeof minOrderTask.order === 'number' ? minOrderTask.order - 1 : 0;
+
+		const task = new Task({ title, description, category, order, userId: req.user.id });
 		await task.save();
 		res.status(201).json(task);
 	} catch (error) {
@@ -43,7 +48,7 @@ const createTask = async (req, res) => {
 
 const getTasks = async (req, res) => {
 	try {
-		const tasks = await Task.find({ userId: req.user.id });
+		const tasks = await Task.find({ userId: req.user.id }).sort({ order: 1 });
 		res.status(200).json(tasks);
 	} catch (error) {
 		res.status(500).json({ message: 'Server error' });
@@ -79,6 +84,10 @@ const updateTask = async (req, res) => {
 			task.description = String(body.description || '').trim();
 		}
 
+		if (body.category !== undefined) {
+			task.category = String(body.category || 'None').trim();
+		}
+
 		if (body.completed !== undefined) {
 			if (typeof body.completed !== 'boolean') {
 				return res.status(400).json({ message: 'Completed must be a boolean' });
@@ -105,4 +114,25 @@ const deleteTask = async (req, res) => {
 	}
 };
 
-export { createTask, getTasks, getTaskById, updateTask, deleteTask };
+const reorderTasks = async (req, res) => {
+	try {
+		const { taskIds } = req.body || {};
+		if (!Array.isArray(taskIds)) {
+			return res.status(400).json({ message: 'taskIds must be an array' });
+		}
+
+		const bulkOps = taskIds.map((id, index) => ({
+			updateOne: {
+				filter: { _id: id, userId: req.user.id },
+				update: { $set: { order: index } },
+			},
+		}));
+
+		await Task.bulkWrite(bulkOps);
+		res.status(200).json({ message: 'Tasks reordered successfully' });
+	} catch (error) {
+		res.status(500).json({ message: 'Server error' });
+	}
+};
+
+export { createTask, getTasks, getTaskById, updateTask, deleteTask, reorderTasks };

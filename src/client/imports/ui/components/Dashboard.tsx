@@ -4,7 +4,7 @@ import { Modal } from "./Modal";
 import { 
   Search, Plus, LogOut, CheckCircle2, Circle, 
   Trash2, Edit2, LayoutGrid, CheckSquare, Clock, 
-  TrendingUp, Calendar
+  TrendingUp, Calendar, GripVertical
 } from "lucide-react";
 
 interface DashboardProps {
@@ -22,12 +22,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newCategory, setNewCategory] = useState<string>("None");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Edit Task Modal State
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState<string>("None");
+
+  // Category filter and Drag state
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     fetchTasks();
@@ -54,12 +60,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
 
     setIsSubmitting(true);
     try {
-      const created = await apiService.createTask(newTitle, newDescription);
+      const created = await apiService.createTask(newTitle, newDescription, newCategory);
       setTasks((prev) => [created, ...prev]);
       showToast("Task created successfully!", "success");
       setIsCreateOpen(false);
       setNewTitle("");
       setNewDescription("");
+      setNewCategory("None");
     } catch (err: any) {
       showToast(err.message || "Failed to create task", "error");
     } finally {
@@ -84,6 +91,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
     setEditingTask(task);
     setEditTitle(task.title);
     setEditDescription(task.description || "");
+    setEditCategory(task.category || "None");
   };
 
   const handleUpdateTask = async (e: React.FormEvent) => {
@@ -99,6 +107,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
       const updated = await apiService.updateTask(editingTask._id, {
         title: editTitle,
         description: editDescription,
+        category: editCategory,
       });
       setTasks((prev) => prev.map((t) => (t._id === editingTask._id ? updated : t)));
       showToast("Task updated successfully!", "success");
@@ -122,6 +131,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
     }
   };
 
+  // Drag and Drop event handlers
+  const isDragEnabled = activeFilter === "all" && categoryFilter === "All" && !searchTerm.trim();
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (!isDragEnabled) return;
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index || !isDragEnabled) return;
+
+    const newTasks = [...tasks];
+    const draggedItem = newTasks[draggedIndex];
+    newTasks.splice(draggedIndex, 1);
+    newTasks.splice(index, 0, draggedItem);
+
+    setDraggedIndex(index);
+    setTasks(newTasks);
+  };
+
+  const handleDragEnd = async () => {
+    setDraggedIndex(null);
+    if (!isDragEnabled) return;
+    try {
+      const taskIds = tasks.map((t) => t._id);
+      await apiService.reorderTasks(taskIds);
+      showToast("Tasks reordered successfully!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to save reordered tasks", "error");
+      fetchTasks();
+    }
+  };
+
   // Stats calculation
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((t) => t.completed).length;
@@ -134,10 +178,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (task.description || "").toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (activeFilter === "completed") return matchesSearch && task.completed;
-    if (activeFilter === "pending") return matchesSearch && !task.completed;
-    return matchesSearch;
+    const matchesStatus =
+      activeFilter === "all"
+        ? true
+        : activeFilter === "completed"
+        ? task.completed
+        : !task.completed;
+
+    const matchesCategory =
+      categoryFilter === "All"
+        ? true
+        : (task.category || "None") === categoryFilter;
+
+    return matchesSearch && matchesStatus && matchesCategory;
   });
+
+  const renderCategoryBadge = (category?: string) => {
+    if (!category || category === "None") return null;
+
+    let styles = "";
+    if (category === "Work") {
+      styles = "bg-meta-blue/15 text-meta-blue border-meta-blue/10";
+    } else if (category === "Personal") {
+      styles = "bg-emerald-500/15 text-emerald-400 border-emerald-500/10";
+    } else if (category === "Urgent") {
+      styles = "bg-rose-500/15 text-rose-400 border-rose-500/10";
+    }
+
+    return (
+      <span className={`px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full border ${styles}`}>
+        {category}
+      </span>
+    );
+  };
 
   return (
     <div className="relative min-h-[90vh] pb-12">
@@ -259,6 +332,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
         </div>
       </section>
 
+      {/* Category Filter Bar */}
+      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1.5 relative z-10 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-2 flex-shrink-0">
+          Categories:
+        </span>
+        {([
+          { name: "All", label: "All Categories", emoji: "📁" },
+          { name: "Work", label: "Work", emoji: "💼" },
+          { name: "Personal", label: "Personal", emoji: "🏠" },
+          { name: "Urgent", label: "Urgent", emoji: "⚠️" },
+          { name: "None", label: "Uncategorized", emoji: "📄" },
+        ] as const).map((cat) => (
+          <button
+            key={cat.name}
+            onClick={() => setCategoryFilter(cat.name)}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-2 border flex-shrink-0 ${
+              categoryFilter === cat.name
+                ? "bg-white/10 border-white/20 text-white shadow-sm shadow-black/10"
+                : "bg-white/5 border-white/5 text-slate-400 hover:text-slate-200 hover:bg-white/10 hover:border-white/10"
+            }`}
+          >
+            <span>{cat.emoji}</span>
+            <span>{cat.label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Tasks List */}
       <section className="relative z-10">
         {loading ? (
@@ -282,72 +382,93 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredTasks.map((task) => (
-              <div
-                key={task._id}
-                className={`glass-panel p-5 rounded-2xl flex items-start gap-4 transition-all duration-300 relative group overflow-hidden ${
-                  task.completed ? "opacity-75" : ""
-                }`}
-                style={{
-                  boxShadow: "inset 0 1px 1px rgba(255, 255, 255, 0.05)",
-                }}
-              >
-                {/* Glow bar for completed vs pending */}
-                <div 
-                  className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 ${
-                    task.completed ? "bg-emerald-500" : "bg-meta-blue"
-                  }`} 
-                />
-
-                {/* Completion Toggle checkbox */}
-                <button
-                  onClick={() => handleToggleComplete(task)}
-                  className="flex-shrink-0 mt-0.5 text-slate-500 hover:text-slate-200 transition-colors duration-150"
+            {filteredTasks.map((task) => {
+              const originalIndex = tasks.findIndex((t) => t._id === task._id);
+              return (
+                <div
+                  key={task._id}
+                  draggable={isDragEnabled}
+                  onDragStart={(e) => handleDragStart(e, originalIndex)}
+                  onDragOver={(e) => handleDragOver(e, originalIndex)}
+                  onDragEnd={handleDragEnd}
+                  className={`glass-panel p-5 rounded-2xl flex items-start gap-4 transition-all duration-300 relative group overflow-hidden ${
+                    task.completed ? "opacity-75" : ""
+                  } ${draggedIndex === originalIndex ? "opacity-40 border border-dashed border-meta-blue" : ""}`}
+                  style={{
+                    boxShadow: "inset 0 1px 1px rgba(255, 255, 255, 0.05)",
+                    cursor: isDragEnabled ? "grab" : "default",
+                  }}
                 >
-                  {task.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 fill-emerald-400/10" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-slate-400 hover:text-meta-blue" />
+                  {/* Glow bar for completed vs pending */}
+                  <div 
+                    className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 ${
+                      task.completed ? "bg-emerald-500" : "bg-meta-blue"
+                    }`} 
+                  />
+
+                  {/* Drag handle */}
+                  {isDragEnabled && (
+                    <div 
+                      className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-0.5"
+                      title="Drag to reorder"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </div>
                   )}
-                </button>
 
-                {/* Info and text */}
-                <div className="flex-1 min-w-0">
-                  <h4
-                    className={`font-bold text-base leading-snug truncate text-white transition-all duration-200 ${
-                      task.completed ? "line-through text-slate-400" : ""
-                    }`}
+                  {/* Completion Toggle checkbox */}
+                  <button
+                    onClick={() => handleToggleComplete(task)}
+                    className="flex-shrink-0 mt-0.5 text-slate-500 hover:text-slate-200 transition-colors duration-150"
                   >
-                    {task.title}
-                  </h4>
-                  <p
-                    className={`text-xs mt-1 text-slate-300 font-light leading-relaxed break-words line-clamp-3 ${
-                      task.completed ? "text-slate-400" : ""
-                    }`}
-                  >
-                    {task.description || "No description provided."}
-                  </p>
-                </div>
+                    {task.completed ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 fill-emerald-400/10" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-slate-400 hover:text-meta-blue" />
+                    )}
+                  </button>
 
-                {/* Action controls */}
-                <div className="flex-shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={() => handleEditClick(task)}
-                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-                    title="Edit Task"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteTask(task._id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors"
-                    title="Delete Task"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* Info and text */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4
+                        className={`font-bold text-base leading-snug truncate text-white transition-all duration-200 ${
+                          task.completed ? "line-through text-slate-400" : ""
+                        }`}
+                      >
+                        {task.title}
+                      </h4>
+                      {renderCategoryBadge(task.category)}
+                    </div>
+                    <p
+                      className={`text-xs mt-1 text-slate-300 font-light leading-relaxed break-words line-clamp-3 ${
+                        task.completed ? "text-slate-400" : ""
+                      }`}
+                    >
+                      {task.description || "No description provided."}
+                    </p>
+                  </div>
+
+                  {/* Action controls */}
+                  <div className="flex-shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={() => handleEditClick(task)}
+                      className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                      title="Edit Task"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTask(task._id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors"
+                      title="Delete Task"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -380,6 +501,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
               rows={4}
               className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white resize-none"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Category
+            </label>
+            <select
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white bg-slate-900 border border-white/10 focus:border-meta-blue outline-none appearance-none"
+              style={{
+                backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 1rem center",
+                backgroundSize: "1.2em",
+              }}
+            >
+              <option value="None">None (Uncategorized)</option>
+              <option value="Work">💼 Work</option>
+              <option value="Personal">🏠 Personal</option>
+              <option value="Urgent">⚠️ Urgent</option>
+            </select>
           </div>
 
           <button
@@ -426,6 +569,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, showToast }) => 
               rows={4}
               className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white resize-none"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Category
+            </label>
+            <select
+              value={editCategory}
+              onChange={(e) => setEditCategory(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white bg-slate-900 border border-white/10 focus:border-meta-blue outline-none appearance-none"
+              style={{
+                backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 1rem center",
+                backgroundSize: "1.2em",
+              }}
+            >
+              <option value="None">None (Uncategorized)</option>
+              <option value="Work">💼 Work</option>
+              <option value="Personal">🏠 Personal</option>
+              <option value="Urgent">⚠️ Urgent</option>
+            </select>
           </div>
 
           <button
